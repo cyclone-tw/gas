@@ -16,11 +16,16 @@ function getDailyReport(dateStr) {
     
     const allRequests = getRepairRequests({}) || [];
     
-    // 當日報修
+    // 取得目標日期的 YYYY-MM-DD 格式（台北時區）
+    const targetDateStr = Utilities.formatDate(targetDate, 'Asia/Taipei', 'yyyy-MM-dd');
+    
+    // 當日報修：將 UTC 時間轉換為台北時間後比較
     const todayRequests = allRequests.filter(r => {
       if (!r || !r.reportDate) return false;
-      const d = new Date(r.reportDate);
-      return d >= startOfDay && d <= endOfDay;
+      // reportDate 是 ISO 字串（UTC），需轉換為台北時間
+      const utcDate = new Date(r.reportDate);
+      const reportDateStr = Utilities.formatDate(utcDate, 'Asia/Taipei', 'yyyy-MM-dd');
+      return reportDateStr === targetDateStr;
     });
     
     // 各狀態統計
@@ -93,13 +98,18 @@ function getWeeklyReport(startDateStr, endDateStr) {
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
     
+    // 轉換為字串格式用於比較（台北時區）
+    const startDateStr = Utilities.formatDate(startDate, 'Asia/Taipei', 'yyyy-MM-dd');
+    const endDateStr = Utilities.formatDate(endDate, 'Asia/Taipei', 'yyyy-MM-dd');
+    
     const allRequests = getRepairRequests({}) || [];
     
-    // 本週報修
+    // 本週報修：使用字串比較避免時區問題
     const weekRequests = allRequests.filter(r => {
       if (!r || !r.reportDate) return false;
-      const d = new Date(r.reportDate);
-      return d >= startDate && d <= endDate;
+      const utcDate = new Date(r.reportDate);
+      const reportDateStr = Utilities.formatDate(utcDate, 'Asia/Taipei', 'yyyy-MM-dd');
+      return reportDateStr >= startDateStr && reportDateStr <= endDateStr;
     });
     
     // 本週結案
@@ -139,14 +149,13 @@ function getWeeklyReport(startDateStr, endDateStr) {
     const dailyTrend = [];
     const tempDate = new Date(startDate);
     while (tempDate <= endDate) {
-      const dayStart = new Date(tempDate);
-      const dayEnd = new Date(tempDate);
-      dayEnd.setHours(23, 59, 59, 999);
+      const dayDateStr = Utilities.formatDate(tempDate, 'Asia/Taipei', 'yyyy-MM-dd');
       
       const dayRequests = weekRequests.filter(r => {
         if (!r || !r.reportDate) return false;
-        const d = new Date(r.reportDate);
-        return d >= dayStart && d <= dayEnd;
+        const utcDate = new Date(r.reportDate);
+        const reportDateStr = Utilities.formatDate(utcDate, 'Asia/Taipei', 'yyyy-MM-dd');
+        return reportDateStr === dayDateStr;
       });
       
       dailyTrend.push({
