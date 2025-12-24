@@ -1,4 +1,4 @@
-# 🏫 SchoolFix - 校園修繕系統
+# 🏫 國姓國小報修系統
 
 基於 Google Apps Script 的校園報修管理系統，提供報修申請、工單管理、報表統計等功能。
 
@@ -9,42 +9,33 @@
 - **報表統計** - 日報表、週報表及趨勢分析
 - **類別管理** - 自訂修繕分類、細項、地點、單位
 
-## 🚀 快速部署
+## 🚀 部署方式
 
-### 方法一：Cloud Shell 部署（推薦）
+本專案使用 **GitHub Actions** 自動部署到 Google Apps Script。
 
-```bash
-# 1. 安裝 clasp
-npm install -g @google/clasp
+### 工作流程
 
-# 2. 登入 Google 帳號
-clasp login --no-localhost
-
-# 3. 克隆專案
-git clone https://github.com/cyclone-tw/gas.git
-cd gas/SchoolFix
-
-# 4. 建立 GAS 專案
-rm -f .clasp.json appsscript.json
-clasp create --title "SchoolFix" --type standalone
-
-# 5. 推送程式碼
-clasp push
+```
+本機修改 → git push → GitHub Actions 自動執行 clasp push → GAS 程式碼更新
 ```
 
-### 方法二：手動複製
+### 首次設定
 
-1. 打開 [script.google.com](https://script.google.com)
-2. 新建專案
-3. 複製所有 `.gs` 和 `.html` 檔案
+1. **設定 GitHub Secret**
+   - 到 repo 的 Settings → Secrets → Actions
+   - 新增 `CLASPRC_JSON`（內容為 `~/.clasprc.json`）
 
-### 部署為網頁應用程式
+2. **確認 .clasp.json**
+   - 確保 `scriptId` 指向正確的 GAS 專案
 
-1. 點擊 **部署** → **新增部署作業**
-2. 類型選 **網頁應用程式**
-3. 執行身分：**我**
-4. 有權存取者：**所有已登入 Google 帳戶的使用者**
-5. 點擊 **部署**
+詳細設定請參考 [GITHUB_ACTIONS_GUIDE.md](GITHUB_ACTIONS_GUIDE.md)
+
+### 更新部署版本
+
+GitHub Actions 只會更新程式碼，**網頁應用程式需手動更新版本**：
+
+1. 打開 GAS 編輯器
+2. **部署** → **管理部署作業** → **編輯** → **新版本** → **部署**
 
 ## 📂 專案結構
 
