@@ -197,7 +197,7 @@
 
             try {
                 const result = await callApi('getRepairs', filters);
-                allRequests = result || []; // 確保是陣列
+                allRequests = result || [];
                 renderRequests();
                 updateStats();
             } catch (error) {
