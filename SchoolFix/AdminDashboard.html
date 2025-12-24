@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <?!= include('Styles'); ?>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <h1>📋 管理後台</h1>
+            <a href="<?= ScriptApp.getService().getUrl() ?>" class="back-link">← 返回首頁</a>
+        </div>
+
+        <!-- 統計區塊 -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card danger">
+                <div class="stat-value" id="statUrgent">-</div>
+                <div class="stat-label">緊急待處理</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-value" id="statPending">-</div>
+                <div class="stat-label">待處理</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statProgress">-</div>
+                <div class="stat-label">處理中</div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-value" id="statCompleted">-</div>
+                <div class="stat-label">今日結案</div>
+            </div>
+        </div>
+
+        <!-- 篩選區 -->
+        <div class="card">
+            <div class="card-body">
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label>狀態</label>
+                        <select id="filterStatus" class="form-control" onchange="loadRequests()">
+                            <option value="">全部狀態</option>
+                            <option value="待處理">待處理</option>
+                            <option value="處理中">處理中</option>
+                            <option value="已結案">已結案</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>分類</label>
+                        <select id="filterCategory" class="form-control" onchange="loadRequests()">
+                            <option value="">全部分類</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>緊急程度</label>
+                        <select id="filterUrgency" class="form-control" onchange="loadRequests()">
+                            <option value="">全部</option>
+                            <option value="緊急">緊急</option>
+                            <option value="一般">一般</option>
+                            <option value="非緊急">非緊急</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>起始日期</label>
+                        <input type="date" id="filterStartDate" class="form-control" onchange="loadRequests()">
+                    </div>
+                    <div class="filter-group">
+                        <label>結束日期</label>
+                        <input type="date" id="filterEndDate" class="form-control" onchange="loadRequests()">
+                    </div>
+                    <div class="filter-group" style="align-self: flex-end;">
+                        <button class="btn btn-secondary" onclick="clearFilters()">清除篩選</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 工單列表 -->
+        <div class="card">
+            <div class="card-header">
+                <span>工單列表</span>
+                <button class="btn btn-sm btn-outline" onclick="loadRequests()"
+                    style="color: white; border-color: white;">🔄 重新整理</button>
+            </div>
+            <div class="card-body">
+                <div id="ticketList" class="ticket-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>© 2024 校園修繕系統</p>
+        </footer>
+    </div>
+
+    <!-- 處理 Modal -->
+    <div id="processModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>處理工單</h3>
+                <button class="modal-close" onclick="closeModal('processModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="processTicketId">
+
+                <div class="form-group">
+                    <label>單號</label>
+                    <input type="text" id="processTicketNumber" class="form-control" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>故障描述</label>
+                    <textarea id="processDescription" class="form-control" readonly
+                        style="background: #f5f5f5;"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>處理狀態 <span class="required">*</span></label>
+                    <select id="processStatus" class="form-control" required>
+                        <option value="待處理">待處理</option>
+                        <option value="處理中">處理中</option>
+                        <option value="已結案">已結案</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>處理人員</label>
+                    <input type="text" id="processHandler" class="form-control" placeholder="負責維修人員">
+                </div>
+
+                <div class="form-group">
+                    <label>處理內容</label>
+                    <textarea id="processContent" class="form-control" placeholder="請說明維修處理情形..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('processModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveProcess()">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 詳情 Modal -->
+    <div id="detailModal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>工單詳情</h3>
+                <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="detailContent">
+            </div>
+        </div>
+    </div>
+
+    <?!= include('Scripts'); ?>
+
+    <script>
+        let allRequests = [];
+        let formData = {};
+
+        // 頁面載入
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                formData = await callApi('getFormData');
+                populateSelect('filterCategory', formData.categories, '全部分類');
+
+                // 設定預設日期範圍（最近30天）
+                const today = new Date();
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(today.getDate() - 30);
+
+                document.getElementById('filterEndDate').value = today.toISOString().split('T')[0];
+                document.getElementById('filterStartDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+
+                await loadRequests();
+            } catch (error) {
+                showToast('載入失敗: ' + error.message, 'error');
+            }
+        });
+
+        // 載入報修單
+        async function loadRequests() {
+            const listContainer = document.getElementById('ticketList');
+            listContainer.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+            const filters = {
+                status: document.getElementById('filterStatus').value,
+                category: document.getElementById('filterCategory').value,
+                urgency: document.getElementById('filterUrgency').value,
+                startDate: document.getElementById('filterStartDate').value,
+                endDate: document.getElementById('filterEndDate').value
+            };
+
+            try {
+                const result = await callApi('getRepairs', filters);
+                allRequests = result || []; // 確保是陣列
+                renderRequests();
+                updateStats();
+            } catch (error) {
+                listContainer.innerHTML = `<p style="color: #e74c3c; text-align: center;">載入失敗: ${error.message}</p>`;
+            }
+        }
+
+        // 渲染工單列表
+        function renderRequests() {
+            const listContainer = document.getElementById('ticketList');
+
+            if (allRequests.length === 0) {
+                listContainer.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">沒有符合條件的報修單</p>';
+                return;
+            }
+
+            listContainer.innerHTML = allRequests.map(req => {
+                const statusClass = req.status === '待處理' ? 'pending' :
+                    req.status === '處理中' ? 'progress' : 'completed';
+                const urgentClass = req.urgency === '緊急' ? 'urgent' : '';
+
+                return `
+          <div class="ticket-card ${statusClass} ${urgentClass}">
+            <div class="ticket-header">
+              <span class="ticket-id">${req.ticketId}</span>
+              <div>
+                ${getStatusBadge(req.status)}
+                ${getUrgencyBadge(req.urgency)}
+              </div>
+            </div>
+            <div class="ticket-meta">
+              <span>📅 ${formatDate(req.reportDate)}</span>
+              <span>👤 ${req.reporterName} (${req.unit})</span>
+              <span>📍 ${req.location}</span>
+            </div>
+            <div class="ticket-description">
+              <strong>${req.category}${req.subCategory ? ' / ' + req.subCategory : ''}</strong><br>
+              ${req.description.length > 100 ? req.description.substring(0, 100) + '...' : req.description}
+            </div>
+            <div class="ticket-actions">
+              <button class="btn btn-sm btn-outline" onclick="showDetail('${req.ticketId}')">查看詳情</button>
+              ${req.status !== '已結案' ?
+                        `<button class="btn btn-sm btn-primary" onclick="openProcess('${req.ticketId}')">處理</button>` :
+                        '<button class="btn btn-sm btn-success" disabled>已結案</button>'}
+            </div>
+          </div>
+        `;
+            }).join('');
+        }
+
+        // 更新統計
+        function updateStats() {
+            const allData = allRequests;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const urgent = allData.filter(r => r.urgency === '緊急' && r.status === '待處理').length;
+            const pending = allData.filter(r => r.status === '待處理').length;
+            const progress = allData.filter(r => r.status === '處理中').length;
+            const todayCompleted = allData.filter(r => {
+                if (r.status !== '已結案' || !r.completeTime) return false;
+                const completeDate = new Date(r.completeTime);
+                return completeDate >= today;
+            }).length;
+
+            document.getElementById('statUrgent').textContent = urgent;
+            document.getElementById('statPending').textContent = pending;
+            document.getElementById('statProgress').textContent = progress;
+            document.getElementById('statCompleted').textContent = todayCompleted;
+        }
+
+        // 清除篩選
+        function clearFilters() {
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterCategory').value = '';
+            document.getElementById('filterUrgency').value = '';
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            loadRequests();
+        }
+
+        // 開啟處理 Modal
+        function openProcess(ticketId) {
+            const req = allRequests.find(r => r.ticketId === ticketId);
+            if (!req) return;
+
+            document.getElementById('processTicketId').value = ticketId;
+            document.getElementById('processTicketNumber').value = ticketId;
+            document.getElementById('processDescription').value = req.description;
+            document.getElementById('processStatus').value = req.status;
+            document.getElementById('processHandler').value = req.handler || '';
+            document.getElementById('processContent').value = req.handlerContent || '';
+
+            openModal('processModal');
+        }
+
+        // 儲存處理
+        async function saveProcess() {
+            const ticketId = document.getElementById('processTicketId').value;
+            const data = {
+                status: document.getElementById('processStatus').value,
+                handler: document.getElementById('processHandler').value,
+                handlerContent: document.getElementById('processContent').value
+            };
+
+            showLoading(true);
+
+            try {
+                const result = await callApi('updateRepair', ticketId, data);
+
+                if (result.success) {
+                    showToast('更新成功！');
+                    closeModal('processModal');
+                    loadRequests();
+                } else {
+                    showToast('更新失敗: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showToast('更新失敗: ' + error.message, 'error');
+            }
+
+            showLoading(false);
+        }
+
+        // 顯示詳情
+        function showDetail(ticketId) {
+            const req = allRequests.find(r => r.ticketId === ticketId);
+            if (!req) return;
+
+            document.getElementById('detailContent').innerHTML = `
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; width: 100px;">單號</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${req.ticketId}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">報修日期</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${formatDate(req.reportDate)}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">報修人</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${req.reporterName} (${req.unit})</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">地點</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${req.location}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">分類</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${req.category}${req.subCategory ? ' / ' + req.subCategory : ''}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">緊急程度</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${getUrgencyBadge(req.urgency)}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">狀態</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${getStatusBadge(req.status)}</td></tr>
+          <tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; vertical-align: top;">故障描述</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${req.description}</td></tr>
+          ${req.remarks ? `<tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; vertical-align: top;">備註</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${req.remarks}</td></tr>` : ''}
+          ${req.handler ? `<tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">處理人員</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${req.handler}</td></tr>` : ''}
+          ${req.handlerContent ? `<tr><td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; vertical-align: top;">處理內容</td><td style="padding: 10px; border-bottom: 1px solid #eee;">${req.handlerContent}</td></tr>` : ''}
+          ${req.completeTime ? `<tr><td style="padding: 10px; font-weight: bold;">完成時間</td><td style="padding: 10px;">${formatDate(req.completeTime)}</td></tr>` : ''}
+        </table>
+        ${req.photoUrl ? `<div style="margin-top: 20px;"><strong>報修照片：</strong><br><img src="${req.photoUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 10px;"></div>` : ''}
+      `;
+
+            openModal('detailModal');
+        }
+    </script>
+</body>
+
+</html>

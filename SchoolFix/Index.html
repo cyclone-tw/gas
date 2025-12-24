@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <?!= include('Styles'); ?>
+</head>
+
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>🏫 校園修繕系統</h1>
+      <p class="subtitle">SchoolFix</p>
+    </header>
+
+    <main class="main-menu">
+      <div class="menu-grid">
+        <a href="<?= ScriptApp.getService().getUrl() ?>?page=form" class="menu-card">
+          <div class="menu-icon">📝</div>
+          <h2>報修申請</h2>
+          <p>填寫報修表單，快速提交維修需求</p>
+        </a>
+
+        <a href="<?= ScriptApp.getService().getUrl() ?>?page=admin" class="menu-card">
+          <div class="menu-icon">📋</div>
+          <h2>管理後台</h2>
+          <p>查看工單狀態、處理維修案件</p>
+        </a>
+
+        <a href="<?= ScriptApp.getService().getUrl() ?>?page=reports" class="menu-card">
+          <div class="menu-icon">📊</div>
+          <h2>報表統計</h2>
+          <p>日報表、週報表、數據分析</p>
+        </a>
+
+        <a href="<?= ScriptApp.getService().getUrl() ?>?page=category" class="menu-card">
+          <div class="menu-icon">⚙️</div>
+          <h2>類別管理</h2>
+          <p>新增修繕分類、細項、部位</p>
+        </a>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>© 2024 校園修繕系統</p>
+    </footer>
+  </div>
+
+  <?!= include('Scripts'); ?>
+</body>
+
+</html>

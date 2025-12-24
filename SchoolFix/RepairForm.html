@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <?!= include('Styles'); ?>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <h1>📝 報修申請</h1>
+            <a href="<?= ScriptApp.getService().getUrl() ?>" class="back-link">← 返回首頁</a>
+        </div>
+
+        <div class="card">
+            <div class="card-header">填寫報修資料</div>
+            <div class="card-body">
+                <form id="repairForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>報修人姓名 <span class="required">*</span></label>
+                            <input type="text" id="reporterName" class="form-control" required placeholder="請輸入姓名">
+                        </div>
+                        <div class="form-group">
+                            <label>所屬單位 <span class="required">*</span></label>
+                            <select id="unit" class="form-control" required>
+                                <option value="">請選擇單位</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>修繕地點 <span class="required">*</span></label>
+                            <select id="location" class="form-control" required>
+                                <option value="">請選擇地點</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>緊急程度 <span class="required">*</span></label>
+                            <select id="urgency" class="form-control" required>
+                                <option value="">請選擇</option>
+                                <option value="緊急">🔴 緊急</option>
+                                <option value="一般">🟡 一般</option>
+                                <option value="非緊急">🟢 非緊急</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>修繕分類 <span class="required">*</span></label>
+                            <select id="category" class="form-control" required onchange="onCategoryChange()">
+                                <option value="">請選擇分類</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>修繕細項</label>
+                            <select id="subCategory" class="form-control">
+                                <option value="">請先選擇分類</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>故障描述 <span class="required">*</span></label>
+                        <textarea id="description" class="form-control" required placeholder="請詳細描述故障情況..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>照片上傳（可選）</label>
+                        <input type="file" id="photo" class="form-control" accept="image/*"
+                            onchange="handlePhotoUpload(event)">
+                        <div id="photoPreview" style="margin-top: 10px;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>備註（可選）</label>
+                        <textarea id="remarks" class="form-control" placeholder="其他需求或說明..."></textarea>
+                    </div>
+
+                    <div style="text-align: center; padding-top: 20px;">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            📤 提交報修
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 成功提示 -->
+        <div id="successMessage" style="display: none;">
+            <div class="card" style="text-align: center; padding: 40px;">
+                <div style="font-size: 4rem; margin-bottom: 20px;">✅</div>
+                <h2 style="color: #27ae60; margin-bottom: 10px;">報修成功！</h2>
+                <p style="font-size: 1.2rem; margin-bottom: 20px;">您的報修單號為：<strong id="ticketNumber"></strong></p>
+                <p style="color: #666; margin-bottom: 30px;">我們已收到您的報修申請，總務處將盡快處理。</p>
+                <div style="display: flex; gap: 15px; justify-content: center;">
+                    <a href="<?= ScriptApp.getService().getUrl() ?>?page=form" class="btn btn-primary">繼續報修</a>
+                    <a href="<?= ScriptApp.getService().getUrl() ?>" class="btn btn-outline">返回首頁</a>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>© 2024 校園修繕系統</p>
+        </footer>
+    </div>
+
+    <?!= include('Scripts'); ?>
+
+    <script>
+        let formData = {};
+        let photoBase64 = '';
+
+        // 頁面載入
+        document.addEventListener('DOMContentLoaded', async () => {
+            showLoading(true);
+            try {
+                formData = await callApi('getFormData');
+
+                // 填充下拉選單
+                populateSelect('unit', formData.units);
+                populateSelect('category', formData.categories);
+
+                // 填充地點（含分組）
+                const locationSelect = document.getElementById('location');
+                locationSelect.innerHTML = '<option value="">請選擇地點</option>';
+
+                // 依分組整理
+                const groups = {};
+                formData.locations.forEach(loc => {
+                    const group = loc.group || '其他';
+                    if (!groups[group]) groups[group] = [];
+                    groups[group].push(loc.name);
+                });
+
+                Object.keys(groups).forEach(group => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = group;
+                    groups[group].forEach(name => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = name;
+                        optgroup.appendChild(option);
+                    });
+                    locationSelect.appendChild(optgroup);
+                });
+
+            } catch (error) {
+                showToast('載入資料失敗: ' + error.message, 'error');
+            }
+            showLoading(false);
+        });
+
+        // 分類變更時更新細項
+        function onCategoryChange() {
+            const category = document.getElementById('category').value;
+            const subSelect = document.getElementById('subCategory');
+
+            if (category && formData.subCategories && formData.subCategories[category]) {
+                subSelect.innerHTML = '<option value="">請選擇細項</option>';
+                formData.subCategories[category].forEach(sub => {
+                    subSelect.innerHTML += `<option value="${sub}">${sub}</option>`;
+                });
+            } else {
+                subSelect.innerHTML = '<option value="">無細項</option>';
+            }
+        }
+
+        // 處理照片上傳
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                photoBase64 = e.target.result;
+                document.getElementById('photoPreview').innerHTML =
+                    `<img src="${photoBase64}" style="max-width: 200px; border-radius: 8px;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 表單提交
+        document.getElementById('repairForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!validateForm('repairForm')) return;
+
+            showLoading(true);
+
+            const data = {
+                reporterName: document.getElementById('reporterName').value,
+                unit: document.getElementById('unit').value,
+                location: document.getElementById('location').value,
+                category: document.getElementById('category').value,
+                subCategory: document.getElementById('subCategory').value,
+                description: document.getElementById('description').value,
+                urgency: document.getElementById('urgency').value,
+                photoUrl: photoBase64,
+                remarks: document.getElementById('remarks').value
+            };
+
+            try {
+                const result = await callApi('submitRepair', data);
+
+                if (result.success) {
+                    document.getElementById('repairForm').parentElement.parentElement.style.display = 'none';
+                    document.getElementById('ticketNumber').textContent = result.ticketId;
+                    document.getElementById('successMessage').style.display = 'block';
+                } else {
+                    showToast('提交失敗: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showToast('提交失敗: ' + error.message, 'error');
+            }
+
+            showLoading(false);
+        });
+    </script>
+</body>
+
+</html>

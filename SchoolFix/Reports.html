@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <?!= include('Styles'); ?>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <h1>📊 報表統計</h1>
+            <a href="<?= ScriptApp.getService().getUrl() ?>" class="back-link">← 返回首頁</a>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="daily" onclick="switchTab('daily', 'dailyContent')">日報表</button>
+            <button class="tab" data-tab="weekly" onclick="switchTab('weekly', 'weeklyContent')">週報表</button>
+        </div>
+
+        <!-- 日報表 -->
+        <div id="dailyContent" class="tab-content active">
+            <div class="card">
+                <div class="card-body">
+                    <div class="filter-bar">
+                        <div class="filter-group">
+                            <label>選擇日期</label>
+                            <input type="date" id="dailyDate" class="form-control" onchange="loadDailyReport()">
+                        </div>
+                        <div class="filter-group" style="align-self: flex-end;">
+                            <button class="btn btn-primary" onclick="loadDailyReport()">載入報表</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="dailyNew">-</div>
+                    <div class="stat-label">當日新增</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-value" id="dailyCompleted">-</div>
+                    <div class="stat-label">當日結案</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-value" id="dailyPending">-</div>
+                    <div class="stat-label">總待處理</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dailyProgress">-</div>
+                    <div class="stat-label">總處理中</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-value" id="dailyUrgent">-</div>
+                    <div class="stat-label">緊急案件</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">當日分類統計</div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="dailyCategoryChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">待處理案件</div>
+                <div class="card-body">
+                    <div id="pendingList" class="table-responsive">
+                        <p style="text-align: center; color: #666;">載入中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 週報表 -->
+        <div id="weeklyContent" class="tab-content">
+            <div class="card">
+                <div class="card-body">
+                    <div class="filter-bar">
+                        <div class="filter-group"><label>起始日期</label><input type="date" id="weeklyStart"
+                                class="form-control"></div>
+                        <div class="filter-group"><label>結束日期</label><input type="date" id="weeklyEnd"
+                                class="form-control"></div>
+                        <div class="filter-group" style="align-self: flex-end;"><button class="btn btn-primary"
+                                onclick="loadWeeklyReport()">載入報表</button></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="weeklyNew">-</div>
+                    <div class="stat-label">本週新增</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-value" id="weeklyCompleted">-</div>
+                    <div class="stat-label">本週結案</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="weeklyRate">-</div>
+                    <div class="stat-label">完成率</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-value" id="weeklyUnclosed">-</div>
+                    <div class="stat-label">未結案總數</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">每日趨勢</div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="weeklyTrendChart"></canvas></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">分類統計</div>
+                <div class="card-body">
+                    <div class="chart-container"><canvas id="weeklyCategoryChart"></canvas></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">地點統計</div>
+                <div class="card-body">
+                    <div id="locationStats" class="table-responsive">
+                        <p style="text-align: center; color: #666;">載入報表後顯示</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>© 2024 校園修繕系統</p>
+        </footer>
+    </div>
+
+    <?!= include('Scripts'); ?>
+    <?!= include('ReportScripts'); ?>
+</body>
+
+</html>

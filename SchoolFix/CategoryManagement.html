@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <?!= include('Styles'); ?>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <h1>⚙️ 類別管理</h1>
+            <a href="<?= ScriptApp.getService().getUrl() ?>" class="back-link">← 返回首頁</a>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="category"
+                onclick="switchTab('category', 'categoryContent')">修繕分類</button>
+            <button class="tab" data-tab="subcategory"
+                onclick="switchTab('subcategory', 'subcategoryContent')">修繕細項</button>
+            <button class="tab" data-tab="location" onclick="switchTab('location', 'locationContent')">部位地點</button>
+            <button class="tab" data-tab="unit" onclick="switchTab('unit', 'unitContent')">報修單位</button>
+        </div>
+
+        <!-- 修繕分類 -->
+        <div id="categoryContent" class="tab-content active">
+            <div class="card">
+                <div class="card-header">新增修繕分類</div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>分類名稱 <span class="required">*</span></label>
+                            <input type="text" id="newCategory" class="form-control" placeholder="例如：門禁設備">
+                        </div>
+                        <div class="form-group" style="align-self: flex-end;">
+                            <button class="btn btn-primary" onclick="addCategory()">➕ 新增</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">現有分類</div>
+                <div class="card-body">
+                    <div id="categoryList" class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 修繕細項 -->
+        <div id="subcategoryContent" class="tab-content">
+            <div class="card">
+                <div class="card-header">新增修繕細項</div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>所屬分類 <span class="required">*</span></label>
+                            <select id="subCategoryParent" class="form-control">
+                                <option value="">請選擇分類</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>細項名稱 <span class="required">*</span></label>
+                            <input type="text" id="newSubCategory" class="form-control" placeholder="例如：門鎖故障">
+                        </div>
+                        <div class="form-group" style="align-self: flex-end;">
+                            <button class="btn btn-primary" onclick="addSubCategory()">➕ 新增</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">現有細項</div>
+                <div class="card-body">
+                    <div id="subcategoryList" class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 部位地點 -->
+        <div id="locationContent" class="tab-content">
+            <div class="card">
+                <div class="card-header">新增部位/地點</div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>部位名稱 <span class="required">*</span></label>
+                            <input type="text" id="newLocation" class="form-control" placeholder="例如：C棟1樓">
+                        </div>
+                        <div class="form-group">
+                            <label>區域分組</label>
+                            <input type="text" id="newLocationGroup" class="form-control" placeholder="例如：C棟">
+                        </div>
+                        <div class="form-group" style="align-self: flex-end;">
+                            <button class="btn btn-primary" onclick="addLocation()">➕ 新增</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">現有部位</div>
+                <div class="card-body">
+                    <div id="locationList" class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 報修單位 -->
+        <div id="unitContent" class="tab-content">
+            <div class="card">
+                <div class="card-header">新增報修單位</div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>單位名稱 <span class="required">*</span></label>
+                            <input type="text" id="newUnit" class="form-control" placeholder="例如：四年甲班">
+                        </div>
+                        <div class="form-group" style="align-self: flex-end;">
+                            <button class="btn btn-primary" onclick="addUnit()">➕ 新增</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">現有單位</div>
+                <div class="card-body">
+                    <div id="unitList" class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>© 2024 校園修繕系統</p>
+        </footer>
+    </div>
+
+    <?!= include('Scripts'); ?>
+
+    <script>
+        let formData = {};
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadAllData();
+        });
+
+        async function loadAllData() {
+            showLoading(true);
+            try {
+                formData = await callApi('getFormData');
+                renderCategories();
+                renderSubCategories();
+                renderLocations();
+                renderUnits();
+                populateSelect('subCategoryParent', formData.categories);
+            } catch (error) {
+                showToast('載入失敗: ' + error.message, 'error');
+            }
+            showLoading(false);
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('categoryList');
+            if (!formData.categories || formData.categories.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">尚無分類</p>';
+                return;
+            }
+            container.innerHTML = `<div style="display: flex; flex-wrap: wrap; gap: 10px;">${formData.categories.map(c => `<span class="badge" style="background: #4a90d9; color: white; padding: 8px 15px; font-size: 0.95rem;">${c}</span>`).join('')}</div>`;
+        }
+
+        function renderSubCategories() {
+            const container = document.getElementById('subcategoryList');
+            if (!formData.subCategories || Object.keys(formData.subCategories).length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">尚無細項</p>';
+                return;
+            }
+            let html = '';
+            for (const [category, items] of Object.entries(formData.subCategories)) {
+                html += `<div style="margin-bottom: 15px;"><strong style="color: #4a90d9;">${category}</strong><div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">${items.map(item => `<span class="badge badge-pending">${item}</span>`).join('')}</div></div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function renderLocations() {
+            const container = document.getElementById('locationList');
+            if (!formData.locations || formData.locations.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">尚無地點</p>';
+                return;
+            }
+            const groups = {};
+            formData.locations.forEach(loc => {
+                const group = loc.group || '未分組';
+                if (!groups[group]) groups[group] = [];
+                groups[group].push(loc.name);
+            });
+            let html = '';
+            for (const [group, items] of Object.entries(groups)) {
+                html += `<div style="margin-bottom: 15px;"><strong style="color: #4a90d9;">${group}</strong><div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">${items.map(item => `<span class="badge badge-completed">${item}</span>`).join('')}</div></div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function renderUnits() {
+            const container = document.getElementById('unitList');
+            if (!formData.units || formData.units.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">尚無單位</p>';
+                return;
+            }
+            container.innerHTML = `<div style="display: flex; flex-wrap: wrap; gap: 10px;">${formData.units.map(u => `<span class="badge badge-progress">${u}</span>`).join('')}</div>`;
+        }
+
+        async function addCategory() {
+            const name = document.getElementById('newCategory').value.trim();
+            if (!name) { showToast('請輸入分類名稱', 'error'); return; }
+            showLoading(true);
+            try {
+                const result = await callApi('addNewCategory', name);
+                if (result.success) { showToast('新增成功！'); document.getElementById('newCategory').value = ''; await loadAllData(); }
+                else { showToast('新增失敗: ' + result.error, 'error'); }
+            } catch (error) { showToast('新增失敗: ' + error.message, 'error'); }
+            showLoading(false);
+        }
+
+        async function addSubCategory() {
+            const parent = document.getElementById('subCategoryParent').value;
+            const name = document.getElementById('newSubCategory').value.trim();
+            if (!parent) { showToast('請選擇所屬分類', 'error'); return; }
+            if (!name) { showToast('請輸入細項名稱', 'error'); return; }
+            showLoading(true);
+            try {
+                const result = await callApi('addNewSubCategory', parent, name);
+                if (result.success) { showToast('新增成功！'); document.getElementById('newSubCategory').value = ''; await loadAllData(); }
+                else { showToast('新增失敗: ' + result.error, 'error'); }
+            } catch (error) { showToast('新增失敗: ' + error.message, 'error'); }
+            showLoading(false);
+        }
+
+        async function addLocation() {
+            const name = document.getElementById('newLocation').value.trim();
+            const group = document.getElementById('newLocationGroup').value.trim();
+            if (!name) { showToast('請輸入地點名稱', 'error'); return; }
+            showLoading(true);
+            try {
+                const result = await callApi('addNewLocation', name, group);
+                if (result.success) { showToast('新增成功！'); document.getElementById('newLocation').value = ''; document.getElementById('newLocationGroup').value = ''; await loadAllData(); }
+                else { showToast('新增失敗: ' + result.error, 'error'); }
+            } catch (error) { showToast('新增失敗: ' + error.message, 'error'); }
+            showLoading(false);
+        }
+
+        async function addUnit() {
+            const name = document.getElementById('newUnit').value.trim();
+            if (!name) { showToast('請輸入單位名稱', 'error'); return; }
+            showLoading(true);
+            try {
+                const result = await callApi('addNewUnit', name);
+                if (result.success) { showToast('新增成功！'); document.getElementById('newUnit').value = ''; await loadAllData(); }
+                else { showToast('新增失敗: ' + result.error, 'error'); }
+            } catch (error) { showToast('新增失敗: ' + error.message, 'error'); }
+            showLoading(false);
+        }
+    </script>
+</body>
+
+</html>

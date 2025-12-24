@@ -1,0 +1,150 @@
+<script>
+    let dailyCategoryChart = null;
+    let weeklyTrendChart = null;
+    let weeklyCategoryChart = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const today = new Date();
+        document.getElementById('dailyDate').value = today.toISOString().split('T')[0];
+
+        const weekAgo = new Date();
+        weekAgo.setDate(today.getDate() - 6);
+        document.getElementById('weeklyStart').value = weekAgo.toISOString().split('T')[0];
+        document.getElementById('weeklyEnd').value = today.toISOString().split('T')[0];
+
+        loadDailyReport();
+    });
+
+    async function loadDailyReport() {
+        const date = document.getElementById('dailyDate').value;
+        showLoading(true);
+
+        try {
+            const report = await callApi('getDailyReportData', date);
+            if (!report || !report.summary) {
+                showToast('報表資料格式錯誤', 'error');
+                showLoading(false);
+                return;
+            }
+            document.getElementById('dailyNew').textContent = report.summary.todayNew || 0;
+            document.getElementById('dailyCompleted').textContent = report.summary.todayCompleted || 0;
+            document.getElementById('dailyPending').textContent = report.summary.totalPending || 0;
+            document.getElementById('dailyProgress').textContent = report.summary.totalInProgress || 0;
+            document.getElementById('dailyUrgent').textContent = report.summary.urgentCases || 0;
+            renderDailyCategoryChart(report.categoryStats || {});
+            renderPendingList(report.pendingRequests || []);
+        } catch (error) {
+            showToast('載入報表失敗: ' + error.message, 'error');
+        }
+        showLoading(false);
+    }
+
+    async function loadWeeklyReport() {
+        const startDate = document.getElementById('weeklyStart').value;
+        const endDate = document.getElementById('weeklyEnd').value;
+        showLoading(true);
+
+        try {
+            const report = await callApi('getWeeklyReportData', startDate, endDate);
+            if (!report || !report.summary) {
+                showToast('報表資料格式錯誤', 'error');
+                showLoading(false);
+                return;
+            }
+            document.getElementById('weeklyNew').textContent = report.summary.totalNew || 0;
+            document.getElementById('weeklyCompleted').textContent = report.summary.totalCompleted || 0;
+            document.getElementById('weeklyRate').textContent = (report.summary.completionRate || 0) + '%';
+            document.getElementById('weeklyUnclosed').textContent = report.summary.totalUnclosed || 0;
+            renderWeeklyTrendChart(report.dailyTrend || []);
+            renderWeeklyCategoryChart(report.categoryStats || {});
+            renderLocationStats(report.locationStats || {});
+        } catch (error) {
+            showToast('載入報表失敗: ' + error.message, 'error');
+        }
+        showLoading(false);
+    }
+
+    function renderDailyCategoryChart(data) {
+        const ctx = document.getElementById('dailyCategoryChart').getContext('2d');
+        if (dailyCategoryChart) dailyCategoryChart.destroy();
+
+        const labels = Object.keys(data);
+        const values = Object.values(data);
+
+        if (labels.length === 0) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            ctx.fillText('當日無報修案件', ctx.canvas.width / 2, ctx.canvas.height / 2);
+            return;
+        }
+
+        dailyCategoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#4a90d9', '#27ae60', '#f39c12', '#e74c3c', '#9b59b6', '#1abc9c', '#34495e', '#e67e22']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+        });
+    }
+
+    function renderWeeklyTrendChart(data) {
+        const ctx = document.getElementById('weeklyTrendChart').getContext('2d');
+        if (weeklyTrendChart) weeklyTrendChart.destroy();
+
+        weeklyTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => d.date),
+                datasets: [{ label: '報修案件數', data: data.map(d => d.count), borderColor: '#4a90d9', backgroundColor: 'rgba(74, 144, 217, 0.1)', fill: true, tension: 0.3 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+    }
+
+    function renderWeeklyCategoryChart(data) {
+        const ctx = document.getElementById('weeklyCategoryChart').getContext('2d');
+        if (weeklyCategoryChart) weeklyCategoryChart.destroy();
+
+        const labels = Object.keys(data);
+        weeklyCategoryChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: '總案件', data: labels.map(k => data[k].total), backgroundColor: '#4a90d9' },
+                    { label: '已完成', data: labels.map(k => data[k].completed), backgroundColor: '#27ae60' }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+    }
+
+    function renderPendingList(requests) {
+        const container = document.getElementById('pendingList');
+        if (!requests || requests.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #27ae60; padding: 20px;">🎉 沒有待處理的案件！</p>';
+            return;
+        }
+        container.innerHTML = `<table class="table"><thead><tr><th>單號</th><th>報修日期</th><th>地點</th><th>分類</th><th>緊急程度</th></tr></thead><tbody>${requests.map(r => `<tr><td>${r.ticketId}</td><td>${formatDateOnly(r.reportDate)}</td><td>${r.location}</td><td>${r.category}</td><td>${getUrgencyBadge(r.urgency)}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    function renderLocationStats(data) {
+        const container = document.getElementById('locationStats');
+        if (!data || Object.keys(data).length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">無資料</p>';
+            return;
+        }
+        const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+        const total = Object.values(data).reduce((a, b) => a + b, 0);
+        container.innerHTML = `<table class="table"><thead><tr><th>地點</th><th>案件數</th><th>佔比</th></tr></thead><tbody>${sorted.map(([loc, count]) => {
+            const percent = total > 0 ? Math.round((count / total) * 100) : 0;
+            return `<tr><td>${loc}</td><td>${count}</td><td><div style="display: flex; align-items: center; gap: 10px;"><div style="flex: 1; background: #eee; border-radius: 10px; height: 10px;"><div style="width: ${percent}%; background: #4a90d9; border-radius: 10px; height: 10px;"></div></div><span>${percent}%</span></div></td></tr>`;
+        }).join('')}</tbody></table>`;
+    }
+</script>
