@@ -19,16 +19,79 @@
 本機修改 → git push → GitHub Actions 自動執行 clasp push → GAS 程式碼更新
 ```
 
-### 首次設定
+### 首次設定 GitHub Actions（當 GitHub 已有專案）
 
-1. **設定 GitHub Secret**
-   - 到 repo 的 Settings → Secrets → Actions
-   - 新增 `CLASPRC_JSON`（內容為 `~/.clasprc.json`）
+#### Step 1: 在 Google Cloud Shell 建立 GAS 專案
 
-2. **確認 .clasp.json**
-   - 確保 `scriptId` 指向正確的 GAS 專案
+```bash
+# 安裝 clasp
+npm install -g @google/clasp
 
-詳細設定請參考 [GITHUB_ACTIONS_GUIDE.md](GITHUB_ACTIONS_GUIDE.md)
+# 登入（會產生授權 URL，點擊後複製 localhost URL 貼回）
+clasp login --no-localhost
+
+# 克隆你的 GitHub repo
+git clone https://github.com/你的帳號/你的repo.git
+cd 你的repo/你的GAS專案資料夾
+
+# 建立新的 GAS 專案
+clasp create --title "專案名稱" --type standalone
+
+# 推送程式碼
+clasp push
+```
+
+#### Step 2: 取得 clasp 認證
+
+在**本機終端機**執行：
+```bash
+cat ~/.clasprc.json
+```
+複製輸出的 JSON 內容。
+
+#### Step 3: 設定 GitHub Secret
+
+1. 打開 GitHub repo → **Settings** → **Secrets and variables** → **Actions**
+2. 點擊 **New repository secret**
+3. Name: `CLASPRC_JSON`
+4. Value: 貼上 `.clasprc.json` 的內容
+5. 點擊 **Add secret**
+
+#### Step 4: 建立 workflow 檔案
+
+在 repo 根目錄建立 `.github/workflows/deploy.yml`：
+
+```yaml
+name: Deploy to Google Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '你的GAS專案資料夾/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g @google/clasp
+      - run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+      - run: clasp push --force
+        working-directory: ./你的GAS專案資料夾
+```
+
+#### Step 5: 確認 .clasp.json
+
+確保專案資料夾中的 `.clasp.json` 有正確的 `scriptId`：
+```json
+{
+  "scriptId": "你的GAS專案ID"
+}
+```
 
 ### 更新部署版本
 
