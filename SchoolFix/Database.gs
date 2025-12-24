@@ -266,75 +266,81 @@ function submitRepairRequest(data) {
  * 查詢報修單
  */
 function getRepairRequests(filters) {
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName(SHEETS.REQUESTS);
-  
-  // 如果工作表不存在，先初始化
-  if (!sheet) {
-    initializeSheets();
-    return [];
-  }
-  
-  const data = sheet.getDataRange().getValues();
-  
-  if (data.length <= 1) return [];
-  
-  const headers = data[0];
-  const requests = [];
-  
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    // 重要：Date 物件必須轉換為字串，否則 google.script.run 序列化會失敗
-    const reportDate = row[1] ? (row[1] instanceof Date ? row[1].toISOString() : String(row[1])) : '';
-    const completeTime = row[14] ? (row[14] instanceof Date ? row[14].toISOString() : String(row[14])) : '';
+  try {
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(SHEETS.REQUESTS);
     
-    const request = {
-      ticketId: String(row[0] || ''),
-      reportDate: reportDate,
-      reporterName: String(row[2] || ''),
-      unit: String(row[3] || ''),
-      location: String(row[4] || ''),
-      category: String(row[5] || ''),
-      subCategory: String(row[6] || ''),
-      description: String(row[7] || ''),
-      urgency: String(row[8] || ''),
-      photoUrl: String(row[9] || ''),
-      remarks: String(row[10] || ''),
-      status: String(row[11] || ''),
-      handler: String(row[12] || ''),
-      handlerContent: String(row[13] || ''),
-      completeTime: completeTime,
-      completePhoto: String(row[15] || ''),
-      rowIndex: i + 1
-    };
-    
-    // 套用篩選條件
-    if (filters) {
-      if (filters.status && request.status !== filters.status) continue;
-      if (filters.category && request.category !== filters.category) continue;
-      if (filters.urgency && request.urgency !== filters.urgency) continue;
-      if (filters.location && request.location !== filters.location) continue;
-      
-      // 日期篩選：使用日期字串比較避免時區問題
-      if (filters.startDate && request.reportDate) {
-        const reportDateStr = request.reportDate.substring(0, 10); // 取 YYYY-MM-DD
-        const startDateStr = filters.startDate.replace(/\//g, '-'); // 2025/11/24 -> 2025-11-24
-        if (reportDateStr < startDateStr) continue;
-      }
-      if (filters.endDate && request.reportDate) {
-        const reportDateStr = request.reportDate.substring(0, 10);
-        const endDateStr = filters.endDate.replace(/\//g, '-');
-        if (reportDateStr > endDateStr) continue;
-      }
+    // 如果工作表不存在，先初始化
+    if (!sheet) {
+      initializeSheets();
+      return [];
     }
     
-    requests.push(request);
+    const data = sheet.getDataRange().getValues();
+    
+    if (data.length <= 1) return [];
+    
+    const headers = data[0];
+    const requests = [];
+    
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      // 重要：Date 物件必須轉換為字串，否則 google.script.run 序列化會失敗
+      const reportDate = row[1] ? (row[1] instanceof Date ? row[1].toISOString() : String(row[1])) : '';
+      const completeTime = row[14] ? (row[14] instanceof Date ? row[14].toISOString() : String(row[14])) : '';
+      
+      const request = {
+        ticketId: String(row[0] || ''),
+        reportDate: reportDate,
+        reporterName: String(row[2] || ''),
+        unit: String(row[3] || ''),
+        location: String(row[4] || ''),
+        category: String(row[5] || ''),
+        subCategory: String(row[6] || ''),
+        description: String(row[7] || ''),
+        urgency: String(row[8] || ''),
+        photoUrl: String(row[9] || ''),
+        remarks: String(row[10] || ''),
+        status: String(row[11] || ''),
+        handler: String(row[12] || ''),
+        handlerContent: String(row[13] || ''),
+        completeTime: completeTime,
+        completePhoto: String(row[15] || ''),
+        rowIndex: i + 1
+      };
+      
+      // 套用篩選條件
+      if (filters) {
+        if (filters.status && request.status !== filters.status) continue;
+        if (filters.category && request.category !== filters.category) continue;
+        if (filters.urgency && request.urgency !== filters.urgency) continue;
+        if (filters.location && request.location !== filters.location) continue;
+        
+        // 日期篩選：使用日期字串比較避免時區問題
+        if (filters.startDate && request.reportDate) {
+          const reportDateStr = request.reportDate.substring(0, 10); // 取 YYYY-MM-DD
+          // 統一格式：把 / 換成 -
+          const startDateStr = String(filters.startDate).replace(/\//g, '-');
+          if (reportDateStr < startDateStr) continue;
+        }
+        if (filters.endDate && request.reportDate) {
+          const reportDateStr = request.reportDate.substring(0, 10);
+          const endDateStr = String(filters.endDate).replace(/\//g, '-');
+          if (reportDateStr > endDateStr) continue;
+        }
+      }
+      
+      requests.push(request);
+    }
+    
+    // 依報修日期降序排列
+    requests.sort((a, b) => new Date(b.reportDate) - new Date(a.reportDate));
+    
+    return requests;
+  } catch (error) {
+    Logger.log('getRepairRequests error: ' + error.message);
+    return [];
   }
-  
-  // 依報修日期降序排列
-  requests.sort((a, b) => new Date(b.reportDate) - new Date(a.reportDate));
-  
-  return requests;
 }
 
 /**
