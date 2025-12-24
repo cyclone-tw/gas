@@ -4,7 +4,82 @@
 
 ---
 
-## 🔴 錯誤 1：Date 物件無法透過 google.script.run 序列化
+## � 除錯過程實錄
+
+> **誠實記錄**：以下是與 AI 助手合作開發時的實際除錯過程，包含多次錯誤嘗試。
+
+### 問題：管理後台顯示 0 筆報修單
+
+**症狀**：
+- 報修表單提交成功（資料有寫入 Google Sheet）
+- 但管理後台顯示「沒有符合條件的報修單」
+- 在 GAS 編輯器直接執行 `getRepairRequests` 可以回傳資料
+
+**錯誤的除錯方向（浪費時間）**：
+1. ❌ 一直讓用戶執行測試函式、截圖、貼 log
+2. ❌ 懷疑是部署問題，反覆讓用戶重新部署
+3. ❌ 懷疑是試算表權限問題
+4. ❌ 懷疑有多個同名試算表衝突
+
+**用戶的反饋**：
+> 「你一直讓我測試這些有的沒的，幹嘛不去好好思考你整個程式碼錯誤在哪裡」
+
+**實際根本原因**：
+- `getRepairRequests` 回傳的物件包含 Date 物件
+- Date 物件透過 `google.script.run` 無法正確序列化
+- 導致前端收到 `null` 或空陣列
+
+**教訓**：
+- 應該先分析 **資料是如何從後端傳到前端的**
+- 不要一直讓用戶做重複測試
+- `google.script.run` 的序列化限制是 GAS 開發的常見陷阱
+
+---
+
+### 問題：修復後報表頁面「當日新增」仍為 0
+
+**時間線**：
+1. 修復 `Database.gs` 的 Date 序列化問題 ✅
+2. 管理後台可以顯示資料了 ✅
+3. 但報表頁面「當日新增」仍顯示 0 ❌
+
+**錯誤**：
+- 只修了 `Database.gs`，忘了 `Report.gs` 也有同樣的日期比較問題
+- `Report.gs` 使用 `setHours()` + Date 物件比較，時區不一致
+
+**修復**：
+- 在 `Report.gs` 使用 `Utilities.formatDate(date, 'Asia/Taipei', 'yyyy-MM-dd')` 統一時區
+
+---
+
+### 問題：GitHub Actions 推送到錯誤的 GAS 專案
+
+**發現過程**：
+1. 設定好 GitHub Actions ✅
+2. Actions 執行成功 ✅
+3. 但用戶發現更新的是舊專案 ❌
+
+**原因**：
+- 本機的 `.clasp.json` 還是舊的專案 ID
+- Cloud Shell 建立了新專案，但本機沒同步
+
+**修復**：
+- 更新 `.clasp.json` 中的 `scriptId` 為新專案 ID
+
+---
+
+### 問題：workflow 檔案放錯位置
+
+**錯誤**：
+- 把 `.github/workflows/deploy.yml` 放在 `SchoolFix/.github/workflows/`
+- GitHub Actions 找不到 workflow
+
+**正確位置**：
+- 應該放在 repo 根目錄：`gas/.github/workflows/deploy.yml`
+
+---
+
+## �🔴 錯誤 1：Date 物件無法透過 google.script.run 序列化
 
 ### 問題描述
 後端函式 `getRepairRequests` 回傳的物件陣列中包含 Date 物件。在 GAS 編輯器測試正常，但透過 `google.script.run` 呼叫時，前端收到的是 `null` 或空陣列。
