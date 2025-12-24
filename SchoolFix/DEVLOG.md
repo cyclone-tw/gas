@@ -158,6 +158,41 @@ function getSpreadsheet() {
 
 ---
 
+## 🔴 錯誤 7：Report.gs 報表日期時區問題
+
+### 問題描述
+日報表「當日新增」顯示 0，但實際有當天報修的資料。
+
+### 原因
+`reportDate` 是 UTC 時間的 ISO 字串（如 `2025-12-24T07:42:32.000Z`），但報表用本地時間建立的 `startOfDay`/`endOfDay` 比較，導致時區不一致。
+
+### 錯誤程式碼
+```javascript
+const todayRequests = allRequests.filter(r => {
+  const d = new Date(r.reportDate);  // ❌ UTC 時間
+  return d >= startOfDay && d <= endOfDay;  // ❌ 本地時間比較
+});
+```
+
+### 正確做法
+```javascript
+// ✅ 使用 Utilities.formatDate 統一轉換為台北時間
+const targetDateStr = Utilities.formatDate(targetDate, 'Asia/Taipei', 'yyyy-MM-dd');
+
+const todayRequests = allRequests.filter(r => {
+  if (!r || !r.reportDate) return false;
+  const utcDate = new Date(r.reportDate);
+  const reportDateStr = Utilities.formatDate(utcDate, 'Asia/Taipei', 'yyyy-MM-dd');
+  return reportDateStr === targetDateStr;  // ✅ 字串比較
+});
+```
+
+### 重點
+- **GAS 中使用 `Utilities.formatDate(date, 'Asia/Taipei', 'yyyy-MM-dd')` 統一時區**
+- 不要用 JavaScript 的 `setHours()` + Date 比較
+
+---
+
 ## 🟢 GAS 部署最佳實踐
 
 ### 1. 資料序列化
@@ -190,6 +225,11 @@ clasp deploy
 - 檢查試算表是否有資料
 - 確認部署版本是最新
 
+### 5. 日期處理（重要！）
+- **儲存**：使用 `new Date()` 原生 Date 物件
+- **回傳前端**：轉為 ISO 字串 `toISOString()`
+- **比較日期**：使用 `Utilities.formatDate(date, 'Asia/Taipei', 'yyyy-MM-dd')` 字串比較
+
 ---
 
 ## 📅 開發時間軸
@@ -202,3 +242,4 @@ clasp deploy
 | 2025-12-24 | 修復：轉換所有 Date 為字串 |
 | 2025-12-24 | 修復：日期比較邏輯 |
 | 2025-12-24 | Cloud Shell 部署成功 ✅ |
+| 2025-12-24 | 修復：Report.gs 時區問題 ✅ |
