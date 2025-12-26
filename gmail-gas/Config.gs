@@ -9,7 +9,7 @@
 
 const CONFIG = {
   // 請在此填入您的 Google Drive 根目錄 ID
-  ROOT_FOLDER_ID: 'YOUR_FOLDER_ID_HERE',
+  ROOT_FOLDER_ID: '1s4PTt4zjHyj-NSrLzkvh5llLmC3CzrXj',
 
   SEARCH_QUERY: 'is:inbox -label:已備份_GAS',
   PROCESSED_LABEL: '已備份_GAS',
