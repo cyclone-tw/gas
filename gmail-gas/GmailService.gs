@@ -8,10 +8,9 @@ const GmailService = {
    * 搜尋符合條件的信件
    * @returns {GoogleAppsScript.Gmail.GmailThread[]}
    */
-  searchThreads: function() {
-    // 限制一次處理的數量，避免執行逾時 (例如 20 筆)
-    // 可以調整此數值
-    const BATCH_SIZE = 20; 
+  searchThreads: function(limit) {
+    // 預設 50 筆，但允許傳入參數覆寫
+    const BATCH_SIZE = limit || 50; 
     return GmailApp.search(CONFIG.SEARCH_QUERY, 0, BATCH_SIZE);
   },
 
