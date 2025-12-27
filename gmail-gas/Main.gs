@@ -1,10 +1,10 @@
 /**
  * Main.gs
- * 主程式入口
+ * 主程式入口 (Markdown 版)
  */
 
 function processEmails() {
-  Logger.log('開始執行 Gmail 自動歸檔...');
+  Logger.log('開始執行 Gmail 自動歸檔 (MD版)...');
 
   try {
     // 1. 搜尋信件 (Threads)
@@ -22,26 +22,27 @@ function processEmails() {
       
       // 遍歷對話串中的每一封信
       for (const message of messages) {
-        // 判斷分類
-        const folderPath = Classifier.classify(message);
-        Logger.log(`信件 "${message.getSubject()}" 分類至 -> ${folderPath}`);
+        // 判斷分類，取得「分類資料夾」路徑
+        const categoryPath = Classifier.classify(message);
+        Logger.log(`信件 "${message.getSubject()}" 分類至 -> ${categoryPath}`);
 
-        // 取得或建立資料夾
-        const folder = DriveUtils.getOrCreateFolder(folderPath);
+        // 取得或建立「分類資料夾」 (例如：財務/帳單憑證)
+        const categoryFolder = DriveUtils.getOrCreateFolder(categoryPath);
 
-        // 儲存 PDF
-        DriveUtils.saveEmailAsPdf(folder, message);
+        // 在分類資料夾下，建立「該封信件的專屬資料夾」
+        // (解決附件混亂問題，並存放 markdown)
+        const emailFolder = DriveUtils.createEmailFolder(categoryFolder, message);
 
-        // 儲存附件 (選擇性)
-        DriveUtils.saveAttachments(folder, message);
+        // 儲存內容為 Markdown
+        DriveUtils.saveEmailAsMarkdown(emailFolder, message);
+
+        // 儲存附件 (直接存進該信件資料夾)
+        DriveUtils.saveAttachments(emailFolder, message);
       }
 
       // 3. 處理完整個 thread 後的後續動作
-      
-      // 標記為已處理
       GmailService.markAsProcessed(thread);
       
-      // 根據設定決定是否自動刪除
       if (CONFIG.ENABLE_AUTO_TRASH) {
         GmailService.moveToTrash(thread);
         Logger.log('已自動移至垃圾桶。');

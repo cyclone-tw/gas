@@ -4,31 +4,40 @@
  */
 
 function trashBackedUpEmails() {
-  const BATCH_SIZE = 50; // 批次刪除的數量
+  const BATCH_SIZE = 100; // 提高單次處理量
   
-  // 搜尋帶有「已備份」標籤的信件
+  // 搜尋條件：
+  // label:已備份_GAS
+  // 注意：這裡只會刪除「已經備份成功」(=身上有貼標籤) 的信件
+  // 這就是您的「一鍵刪除」功能，既安全 (有備份才刪) 又快速
   const query = `label:${CONFIG.PROCESSED_LABEL}`;
-  const threads = GmailApp.search(query, 0, BATCH_SIZE);
+  
+  Logger.log(`開始搜尋並刪除已備份信件 (搜尋條件: ${query})...`);
 
-  if (threads.length === 0) {
-    Logger.log('沒有找到已備份且需要刪除的信件。');
-    return;
-  }
+  // 持續執行直到時間快不夠或沒有信件為止
+  const startTime = new Date().getTime();
+  const MAX_EXECUTION_TIME = 250 * 1000; // 預留空間，避免超過 GAS 6分鐘限制
 
-  Logger.log(`找到 ${threads.length} 筆已備份信件，準備移至垃圾桶...`);
+  let totalDeleted = 0;
 
-  const ui = SpreadsheetApp.getActiveSpreadsheet() ? SpreadsheetApp.getUi() : null;
-  // 如果是在試算表容器綁定腳本中運行，可以跳出確認框
-  // 但這裡是單獨 GAS 專案，通常直接執行 LOG
-
-  for (const thread of threads) {
-    try {
-      thread.moveToTrash();
-      Logger.log(`已刪除: ${thread.getFirstMessageSubject()}`);
-    } catch (e) {
-      Logger.log(`刪除失敗: ${thread.getFirstMessageSubject()} / ${e.message}`);
+  while (true) {
+    if (new Date().getTime() - startTime > MAX_EXECUTION_TIME) {
+      Logger.log('執行時間即將逾時，請再次執行此函式以繼續刪除。');
+      break;
     }
-  }
 
-  Logger.log('清理完成。如果有更多信件請再次執行此功能。');
+    const threads = GmailApp.search(query, 0, BATCH_SIZE);
+    if (threads.length === 0) {
+      Logger.log('沒有找到更多已備份的信件。清理完成！');
+      break;
+    }
+
+    Logger.log(`本批次找到 ${threads.length} 筆，正在移至垃圾桶...`);
+    
+    // 批次移至垃圾桶 (比逐筆移快)
+    GmailApp.moveThreadsToTrash(threads);
+    totalDeleted += threads.length;
+    
+    Logger.log(`目前已累積移除 ${totalDeleted} 筆。`);
+  }
 }
